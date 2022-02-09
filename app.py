@@ -5,8 +5,15 @@ import sys
 
 app = Flask(__name__)
 
+@app.get('/candy')
+def get_candy():
+    candys = db.get_candy_db()
 
+    candys_json = json.dumps(candys, default=str)
 
+    return Response(candys_json, mimetype="application/json", status=200)
+
+# testing/production mode code
 if len(sys.argv) > 1:
     mode = sys.argv[1]
 else:
