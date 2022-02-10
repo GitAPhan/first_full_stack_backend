@@ -1,3 +1,5 @@
+import secrets
+from uuid import uuid4
 import mariadb as db
 import dbcreds as c
 
@@ -12,22 +14,31 @@ class IdNonExistent(Exception):
 class InputStringTooLong(Exception):
     pass
 
+
+#
+class IncorrectLoginCredentials(Exception):
+    pass
+
+
 # connect to database function
 def connect_db():
     conn = None
     cursor = None
     try:
-        conn = db.connect(user=c.user,
-                          password=c.password,
-                          host=c.host,
-                          port=c.port,
-                          database=c.database)
+        conn = db.connect(
+            user=c.user,
+            password=c.password,
+            host=c.host,
+            port=c.port,
+            database=c.database,
+        )
         cursor = conn.cursor()
     except db.OperationalError:
         print("something went wrong with the DB, please try again in 5 minutes")
     except Exception:
         print("DB Connection Error: General error message")
-    return conn, cursor  
+    return conn, cursor
+
 
 # disconnect from database function
 def disconnect_db(conn, cursor):
@@ -43,6 +54,7 @@ def disconnect_db(conn, cursor):
         print(e)
         print("DB Connection Close Error: General error message")
 
+
 # grabbing candy posts from database
 def get_candy_db():
     conn, cursor = connect_db()
@@ -53,7 +65,7 @@ def get_candy_db():
         cursor.execute("select id, name, description, user_id from candy")
         candys = cursor.fetchall()
     except:
-        print('generic db error: get')
+        print("generic db error: get")
 
     disconnect_db(conn, cursor)
 
@@ -62,11 +74,12 @@ def get_candy_db():
             "id": candy[0],
             "name": candy[1],
             "description": candy[2],
-            "user_id": candy[3]
+            "user_id": candy[3],
         }
         ordered_candys.append(candies)
-    
+
     return ordered_candys
+
 
 # adding candy posts to database
 def post_candy_db(name, description):
@@ -74,20 +87,25 @@ def post_candy_db(name, description):
 
     # status message and code
     status_message = "generic post db error"
-    status_code = 400 
+    status_code = 400
 
     # conditional to catch if string entered is too long
     try:
         if len(name) > 100:
             raise InputStringTooLong
-        if len(description) >255:
+        if len(description) > 255:
             raise InputStringTooLong
     except InputStringTooLong:
-        return "Input Error:'name' value too long. Please limit to 100 characters", status_code
+        return (
+            "Input Error:'name' value too long. Please limit to 100 characters",
+            status_code,
+        )
 
     # database request
     try:
-        cursor.execute("insert into candy (name, description) values (?,?)", [name, description])
+        cursor.execute(
+            "insert into candy (name, description) values (?,?)", [name, description]
+        )
         conn.commit()
 
         # success message
@@ -100,34 +118,36 @@ def post_candy_db(name, description):
 
     return status_message, status_code
 
+
 # edit existing candy posts in database
 def patch_candy_db(id, name, description):
     conn, cursor = connect_db()
 
     # status message and code
     status_message = "generic patch db error"
-    status_code = 400 
+    status_code = 400
 
     # conditional to catch if string entered is too long
     try:
         if len(name) > 100:
             raise InputStringTooLong
-        if len(description) >255:
+        if len(description) > 255:
             raise InputStringTooLong
     except InputStringTooLong:
-        return "Input Error:'name' value too long. Please limit to 100 characters", status_code
+        return (
+            "Input Error:'name' value too long. Please limit to 100 characters",
+            status_code,
+        )
 
     # database request
     try:
-        # fetch the count of user input "id" to verify if id exists
-        cursor.execute("select count(name) from candy where id=?", [id])
-        id_status = cursor.fetchone()[0]
-        # conditional to raise custom exception if count is 0
-        if id_status == 0:
-            raise IdNonExistent
-
-        cursor.execute("update candy set name=?, description=? where id=?", [name, description, id])
+        cursor.execute(
+            "update candy set name=?, description=? where id=?", [name, description, id]
+        )
         conn.commit()
+        # conditional to raise custom exception if row count is 0
+        if cursor.rowcount == 0:
+            raise IdNonExistent
 
         # update status
         status_message = "success message"
@@ -140,6 +160,7 @@ def patch_candy_db(id, name, description):
     disconnect_db(conn, cursor)
 
     return status_message, status_code
+
 
 # delete existing candy from database
 def delete_candy_db(id):
@@ -147,18 +168,14 @@ def delete_candy_db(id):
 
     # status message and code
     status_message = "generic delete db error"
-    status_code = 400 
+    status_code = 400
 
     try:
-        # fetch the count of user input "id" to verify if id exists
-        cursor.execute("select count(name) from candy where id=?", [id])
-        id_status = cursor.fetchone()[0]
-        # conditional to raise custom exception if count is 0
-        if id_status == 0:
-            raise IdNonExistent
-
         cursor.execute("delete from candy where id=?", [id])
         conn.commit()
+        # conditional to raise custom exception if row count is 0
+        if cursor.rowcount == 0:
+            raise IdNonExistent
 
         # update status
         status_message = "success message"
@@ -171,3 +188,73 @@ def delete_candy_db(id):
     disconnect_db(conn, cursor)
 
     return status_message, status_code
+
+
+# login attempt request from database
+def login_attempt_db(username, password):
+    conn, cursor = connect_db()
+
+    # status message and code
+    status_message = "generic login attempt db error"
+    status_code = 400
+
+    try:
+        # verify username and password and return the id
+        cursor.execute(
+            "select id from user where username=? and password=?", [username, password]
+        )
+        user_id = int(cursor.fetchone()[0])
+
+        # generate unique login token
+        loginToken = {"loginToken": secrets.token_urlsafe()}
+
+        # add login session to login table
+        cursor.execute(
+            "insert into login (login_token, user_id) values (?,?)",
+            [loginToken["loginToken"], user_id],
+        )
+        conn.commit()
+
+        status_message = loginToken
+        status_code = 200
+    except TypeError:
+        return "Input Error: incorrect login credentials", status_code
+    except:
+        return status_message, status_code
+
+    disconnect_db(conn, cursor)
+
+    return status_message, status_code
+
+
+# logout attempt request from database
+def logout_attempt_db(login_token):
+    conn, cursor = connect_db()
+
+    # status message and code
+    status_message = "generic logout attempt db error"
+    status_code = 400
+
+    try:
+        # remove login session from database
+        cursor.execute("delete from login where login_token=?", [login_token])
+        conn.commit()
+
+        # check to see if any entry has been deleted
+        if cursor.rowcount == 0:
+            raise IdNonExistent
+
+        # update status
+        status_message = "success message"
+        status_code = 200
+    except IdNonExistent:
+        return "Input Error: 'id' does not exist", status_code
+    except:
+        return status_message, status_code
+
+    disconnect_db(conn, cursor)
+
+    return status_message, status_code
+
+
+print(logout_attempt_db("3hc1L55adn6N5n_Bvyzz643iQm1rl30G28JSr5iIWTo"))
