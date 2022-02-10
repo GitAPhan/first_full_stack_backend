@@ -46,6 +46,8 @@ def patch_candy():
         name = request.json["name"]
         key_error_message = "KeyError: 'description'"
         description = request.json["description"]
+        key_error_message = "KeyError: 'loginToken'"
+        login_token = request.json["loginToken"]
     except KeyError:
         return Response(key_error_message, mimetype="plain/text", status=400)
     except ValueError:
@@ -60,7 +62,7 @@ def patch_candy():
         )
 
     # request from database
-    patch_status_message, patch_status_code = db.patch_candy_db(id, name, description)
+    patch_status_message, patch_status_code = db.patch_candy_db(id, name, description, login_token)
 
     return Response(
         patch_status_message, mimetype="plain/text", status=patch_status_code
@@ -129,7 +131,7 @@ def login_attempt():
 @app.delete("/user")
 def logout_attempt():
     # key error status message
-    key_error_message = "KeyError: 'login_token'"
+    key_error_message = "KeyError: 'loginToken'"
 
     try:
         # user input

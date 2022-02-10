@@ -15,8 +15,12 @@ class InputStringTooLong(Exception):
     pass
 
 
-#
+# wrong login info
 class IncorrectLoginCredentials(Exception):
+    pass
+
+# user does not have permission
+class PermissionDenied(Exception):
     pass
 
 
@@ -120,7 +124,7 @@ def post_candy_db(name, description):
 
 
 # edit existing candy posts in database
-def patch_candy_db(id, name, description):
+def patch_candy_db(id, name, description, login_token):
     conn, cursor = connect_db()
 
     # status message and code
@@ -141,8 +145,28 @@ def patch_candy_db(id, name, description):
 
     # database request
     try:
+        # login token check 
+        cursor.execute("select user_id from login where login_token=?", [login_token])
+        user_id = int(cursor.fetchone()[0])
+    except TypeError:
+        return "Token Error: invalid user token", status_code
+    except:
+        return "Token Error: Generic DB error"
+
+    try:
+        # compare user_id from login with user_id from candy to have a more specific exception
+        cursor.execute("select user_id from candy where id=?", [id])
+        candy_user_id = cursor.fetchone()[0]
+        if user_id != candy_user_id:
+            raise PermissionDenied
+    except PermissionDenied:
+        return "Permission Error: user does not have permission", status_code
+    except:
+        return status_message, status_code
+
+    try:
         cursor.execute(
-            "update candy set name=?, description=? where id=?", [name, description, id]
+            "update candy set name=?, description=? where id=? and user_id=?", [name, description, id, user_id]
         )
         conn.commit()
         # conditional to raise custom exception if row count is 0
@@ -153,7 +177,7 @@ def patch_candy_db(id, name, description):
         status_message = "success message"
         status_code = 200
     except IdNonExistent:
-        return "Input Error: 'id' does not exist", status_code
+        return "Update Error: no entries were updated", status_code
     except:
         return status_message, status_code
 
@@ -230,7 +254,7 @@ def login_attempt_db(username, password):
 # logout attempt request from database
 def logout_attempt_db(login_token):
     conn, cursor = connect_db()
-
+    print(login_token)
     # status message and code
     status_message = "generic logout attempt db error"
     status_code = 400
@@ -248,13 +272,10 @@ def logout_attempt_db(login_token):
         status_message = "success message"
         status_code = 200
     except IdNonExistent:
-        return "Input Error: 'id' does not exist", status_code
+        return "Input Error: 'loginToken' does not exist", status_code
     except:
         return status_message, status_code
 
     disconnect_db(conn, cursor)
 
     return status_message, status_code
-
-
-print(logout_attempt_db("3hc1L55adn6N5n_Bvyzz643iQm1rl30G28JSr5iIWTo"))
