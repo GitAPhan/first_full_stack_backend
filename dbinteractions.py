@@ -1,6 +1,17 @@
 import mariadb as db
 import dbcreds as c
 
+
+# Exceptions:
+# id of that item is non existent
+class IdNonExistent(Exception):
+    pass
+
+
+# input value string too long
+class InputStringTooLong(Exception):
+    pass
+
 # connect to database function
 def connect_db():
     conn = None
@@ -61,43 +72,102 @@ def get_candy_db():
 def post_candy_db(name, description):
     conn, cursor = connect_db()
 
+    # status message and code
+    status_message = "generic post db error"
+    status_code = 400 
+
+    # conditional to catch if string entered is too long
+    try:
+        if len(name) > 100:
+            raise InputStringTooLong
+        if len(description) >255:
+            raise InputStringTooLong
+    except InputStringTooLong:
+        return "Input Error:'name' value too long. Please limit to 100 characters", status_code
+
+    # database request
     try:
         cursor.execute("insert into candy (name, description) values (?,?)", [name, description])
         conn.commit()
+
+        # success message
+        status_message = "success message"
+        status_code = 200
     except:
-        print("generic db error: post")
-        return "error message"
+        return status_message, status_code
 
     disconnect_db(conn, cursor)
 
-    return "success message"
+    return status_message, status_code
 
 # edit existing candy posts in database
 def patch_candy_db(id, name, description):
     conn, cursor = connect_db()
 
+    # status message and code
+    status_message = "generic patch db error"
+    status_code = 400 
+
+    # conditional to catch if string entered is too long
     try:
+        if len(name) > 100:
+            raise InputStringTooLong
+        if len(description) >255:
+            raise InputStringTooLong
+    except InputStringTooLong:
+        return "Input Error:'name' value too long. Please limit to 100 characters", status_code
+
+    # database request
+    try:
+        # fetch the count of user input "id" to verify if id exists
+        cursor.execute("select count(name) from candy where id=?", [id])
+        id_status = cursor.fetchone()[0]
+        # conditional to raise custom exception if count is 0
+        if id_status == 0:
+            raise IdNonExistent
+
         cursor.execute("update candy set name=?, description=? where id=?", [name, description, id])
         conn.commit()
+
+        # update status
+        status_message = "success message"
+        status_code = 200
+    except IdNonExistent:
+        return "Input Error: 'id' does not exist", status_code
     except:
-        print("generic db error: patch")
-        return "error message"
+        return status_message, status_code
 
     disconnect_db(conn, cursor)
 
-    return "success message"
+    return status_message, status_code
 
 # delete existing candy from database
 def delete_candy_db(id):
     conn, cursor = connect_db()
 
+    # status message and code
+    status_message = "generic delete db error"
+    status_code = 400 
+
     try:
+        # fetch the count of user input "id" to verify if id exists
+        cursor.execute("select count(name) from candy where id=?", [id])
+        id_status = cursor.fetchone()[0]
+        # conditional to raise custom exception if count is 0
+        if id_status == 0:
+            raise IdNonExistent
+
         cursor.execute("delete from candy where id=?", [id])
         conn.commit()
+
+        # update status
+        status_message = "success message"
+        status_code = 200
+    except IdNonExistent:
+        return "Input Error: 'id' does not exist", status_code
     except:
-        print("generic db error: delete")
-        return "error message"
+        return status_message, status_code
 
     disconnect_db(conn, cursor)
 
-    return "success message"
+    return status_message, status_code
