@@ -67,7 +67,8 @@ def get_candy_db():
     ordered_candys = []
 
     try:
-        cursor.execute("select id, name, description, user_id from candy")
+        # select statement to grab id, name, description and username in descending order by post
+        cursor.execute("select c.id, c.name, c.description, u.username from candy c inner join user u on u.id = c.user_id order by c.id desc")
         candys = cursor.fetchall()
     except:
         print("generic db error: get")
@@ -79,7 +80,7 @@ def get_candy_db():
             "id": candy[0],
             "name": candy[1],
             "description": candy[2],
-            "user_id": candy[3],
+            "username": candy[3],
         }
         ordered_candys.append(candies)
 
@@ -122,12 +123,19 @@ def post_candy_db(name, description, login_token):
             "insert into candy (name, description, user_id) values (?,?,?)", [name, description, user_id]
         )
         conn.commit()
+        # grabbed the id to send with response
+        candy_id = cursor.lastrowid
 
         # success message
-        status_message = "success message"
+        status_message = {
+            "message": "candy has been successfully posted",
+            "candy_id": candy_id
+        }
         status_code = 200
-    except:
-        return status_message, status_code
+    except KeyError:
+        pass
+    # except Exception as e:
+    #     return e, status_code
 
     disconnect_db(conn, cursor)
 
@@ -247,16 +255,19 @@ def login_attempt_db(username, password):
         user_id = int(cursor.fetchone()[0])
 
         # generate unique login token
-        loginToken = {"loginToken": secrets.token_urlsafe()}
+        loginToken = secrets.token_urlsafe()
 
         # add login session to login table
         cursor.execute(
             "insert into login (login_token, user_id) values (?,?)",
-            [loginToken["loginToken"], user_id],
+            [loginToken, user_id],
         )
         conn.commit()
 
-        status_message = loginToken
+        status_message = {
+            "loginToken": loginToken,
+            "username": username
+        }
         status_code = 200
     except TypeError:
         return "Input Error: incorrect login credentials", status_code
@@ -271,7 +282,6 @@ def login_attempt_db(username, password):
 # logout attempt request from database
 def logout_attempt_db(login_token):
     conn, cursor = connect_db()
-    print(login_token)
     # status message and code
     status_message = "generic logout attempt db error"
     status_code = 400
@@ -286,7 +296,7 @@ def logout_attempt_db(login_token):
             raise IdNonExistent
 
         # update status
-        status_message = "success message"
+        status_message = "logout successful!"
         status_code = 200
     except IdNonExistent:
         return "Input Error: 'loginToken' does not exist", status_code

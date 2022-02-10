@@ -28,11 +28,16 @@ def post_candy():
         login_token = request.json["loginToken"]
     except KeyError:
         return Response(key_error_message, mimetype="plain/text", status=400)
+    except:
+        return Response("Generic Post Error", mimetype="plain/text", status=400)
 
     # request from database
     post_status_message, post_status_code = db.post_candy_db(name, description, login_token)
 
-    return Response(post_status_message, mimetype="plain/text", status=post_status_code)
+    # convert to json
+    post_status_message_json = json.dumps(post_status_message, default=str)
+
+    return Response(post_status_message_json, mimetype="plain/text", status=post_status_code)
 
 
 # clients can edit candy posts
