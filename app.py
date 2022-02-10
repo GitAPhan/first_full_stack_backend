@@ -24,11 +24,13 @@ def post_candy():
         name = request.json["name"]
         key_error_message = "KeyError: 'description'"
         description = request.json["description"]
+        key_error_message = "KeyError: 'loginToken'"
+        login_token = request.json["loginToken"]
     except KeyError:
         return Response(key_error_message, mimetype="plain/text", status=400)
 
     # request from database
-    post_status_message, post_status_code = db.post_candy_db(name, description)
+    post_status_message, post_status_code = db.post_candy_db(name, description, login_token)
 
     return Response(post_status_message, mimetype="plain/text", status=post_status_code)
 

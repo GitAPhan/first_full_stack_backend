@@ -19,6 +19,7 @@ class InputStringTooLong(Exception):
 class IncorrectLoginCredentials(Exception):
     pass
 
+
 # user does not have permission
 class PermissionDenied(Exception):
     pass
@@ -86,12 +87,22 @@ def get_candy_db():
 
 
 # adding candy posts to database
-def post_candy_db(name, description):
+def post_candy_db(name, description, login_token):
     conn, cursor = connect_db()
 
     # status message and code
     status_message = "generic post db error"
     status_code = 400
+
+    # database request
+    try:
+        # login token check
+        cursor.execute("select user_id from login where login_token=?", [login_token])
+        user_id = int(cursor.fetchone()[0])
+    except TypeError:
+        return "Token Error: invalid user token", status_code
+    except:
+        return "Token Error: Generic DB error", status_code
 
     # conditional to catch if string entered is too long
     try:
@@ -108,7 +119,7 @@ def post_candy_db(name, description):
     # database request
     try:
         cursor.execute(
-            "insert into candy (name, description) values (?,?)", [name, description]
+            "insert into candy (name, description, user_id) values (?,?,?)", [name, description, user_id]
         )
         conn.commit()
 
@@ -145,7 +156,7 @@ def patch_candy_db(id, name, description, login_token):
 
     # database request
     try:
-        # login token check 
+        # login token check
         cursor.execute("select user_id from login where login_token=?", [login_token])
         user_id = int(cursor.fetchone()[0])
     except TypeError:
@@ -161,12 +172,15 @@ def patch_candy_db(id, name, description, login_token):
             raise PermissionDenied
     except PermissionDenied:
         return "Permission Error: user does not have permission", status_code
-    except:
-        return status_message, status_code
+    except TypeError:
+        return "Update Error: 'id' does not exist", status_code
+    # except:
+    #     return status_message, status_code
 
     try:
         cursor.execute(
-            "update candy set name=?, description=? where id=? and user_id=?", [name, description, id, user_id]
+            "update candy set name=?, description=? where id=? and user_id=?",
+            [name, description, id, user_id],
         )
         conn.commit()
         # conditional to raise custom exception if row count is 0
@@ -195,7 +209,10 @@ def delete_candy_db(id, login_token):
     status_code = 400
 
     try:
-        cursor.execute("delete c from candy c inner join login l on l.user_id = c.user_id where c.id=? and l.login_token=?", [id, login_token])
+        cursor.execute(
+            "delete c from candy c inner join login l on l.user_id = c.user_id where c.id=? and l.login_token=?",
+            [id, login_token],
+        )
         conn.commit()
         # conditional to raise custom exception if row count is 0
         if cursor.rowcount == 0:
