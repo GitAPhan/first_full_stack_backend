@@ -62,7 +62,9 @@ def patch_candy():
         )
 
     # request from database
-    patch_status_message, patch_status_code = db.patch_candy_db(id, name, description, login_token)
+    patch_status_message, patch_status_code = db.patch_candy_db(
+        id, name, description, login_token
+    )
 
     return Response(
         patch_status_message, mimetype="plain/text", status=patch_status_code
@@ -77,7 +79,9 @@ def delete_candy():
 
     try:
         # user input
-        id = request.json["id"]
+        id = int(request.json["id"])
+        key_error_message = "KeyError: 'loginToken'"
+        login_token = request.json["loginToken"]
     except KeyError:
         return Response(key_error_message, mimetype="plain/text", status=400)
     except ValueError:
@@ -92,7 +96,7 @@ def delete_candy():
         )
 
     # request from database
-    delete_status_message, delete_status_code = db.delete_candy_db(id)
+    delete_status_message, delete_status_code = db.delete_candy_db(id, login_token)
 
     return Response(
         delete_status_message, mimetype="plain/text", status=delete_status_code

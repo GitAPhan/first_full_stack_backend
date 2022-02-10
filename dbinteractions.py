@@ -187,7 +187,7 @@ def patch_candy_db(id, name, description, login_token):
 
 
 # delete existing candy from database
-def delete_candy_db(id):
+def delete_candy_db(id, login_token):
     conn, cursor = connect_db()
 
     # status message and code
@@ -195,7 +195,7 @@ def delete_candy_db(id):
     status_code = 400
 
     try:
-        cursor.execute("delete from candy where id=?", [id])
+        cursor.execute("delete c from candy c inner join login l on l.user_id = c.user_id where c.id=? and l.login_token=?", [id, login_token])
         conn.commit()
         # conditional to raise custom exception if row count is 0
         if cursor.rowcount == 0:
@@ -205,7 +205,7 @@ def delete_candy_db(id):
         status_message = "success message"
         status_code = 200
     except IdNonExistent:
-        return "Input Error: 'id' does not exist", status_code
+        return "Input Error: No entry found", status_code
     except:
         return status_message, status_code
 
